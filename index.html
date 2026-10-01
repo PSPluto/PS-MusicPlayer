@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Transparent Music Player</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" class="mini-mode">
+
+    <!-- Island 1: Mini Player -->
+    <div class="island mini-player">
+      <div class="cover">
+         <img id="cover-img" src="" alt="Cover" style="display: none; width: 100%; height: 100%; border-radius: 8px; object-fit: cover;">
+         <div id="cover-placeholder">♪</div>
+      </div>
+      <div class="info">
+        <div id="song-title" class="title-viewport">
+          <div class="title-track">
+            <span class="title-content">曲を選択してください</span>
+          </div>
+        </div>
+        <div class="artist-row">
+          <div id="song-artist">-</div>
+          <button id="main-favorite-btn" class="main-favorite-btn" title="お気に入りに追加" style="display: none;">
+            <img id="main-favorite-img" src="assets/Fav_Add.svg" alt="Bookmark">
+          </button>
+        </div>
+        
+        <div class="progress-container" id="progress-container">
+            <input type="range" id="seek-bar" min="0" max="100" value="0">
+            <div id="ab-loop-panel" class="ab-loop-panel">
+                <input type="text" id="ab-loop-start" class="ab-time-input" placeholder="0:00" title="開始時間 (A)">
+                <img src="assets/repeat_24dp_E3E3E3_FILL1_wght400_GRAD0_opsz24.svg" class="ab-separator-icon" alt="to">
+                <input type="text" id="ab-loop-end" class="ab-time-input" placeholder="0:00" title="終了時間 (B)">
+                <button id="ab-loop-clear" class="ab-btn" title="ABループ解除">×</button>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div class="control-island" id="shuffle-btn" title="Shuffle"><img id="img-shuffle" src="assets/shuffle_24dp_E3E3E3_FILL1_wght400_GRAD0_opsz24.svg"></div>
+            <div class="control-island" id="prev-btn" title="Previous"><img src="assets/skip_previous_24dp_E3E3E3_FILL1_wght400_GRAD0_opsz24.svg"></div>
+            <div class="control-island" id="play-btn" title="Play/Pause"><img id="img-play" src="assets/play_circle_24dp_E3E3E3_FILL1_wght400_GRAD0_opsz24.svg"></div>
+            <div class="control-island" id="next-btn" title="Next"><img src="assets/skip_next_24dp_E3E3E3_FILL1_wght400_GRAD0_opsz24.svg"></div>
+            <div class="control-island" id="loop-btn" title="Loop"><img id="img-loop" src="assets/repeat_24dp_E3E3E3_FILL1_wght400_GRAD0_opsz24.svg"></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Island 2: Controls Row -->
+    <div class="controls-row">
+        <div id="btn-expand" class="island playlist-expand clickable-island" role="button" tabindex="0">
+            <div class="expand-btn">
+                <img id="img-expand" src="assets/arrow_drop_down_24dp_E3E3E3_FILL1_wght400_GRAD0_opsz24.svg">
+                <span id="text-expand">プレイリストを展開</span>
+            </div>
+        </div>
+        <!-- <div id="btn-lang" class="island pin-island clickable-island" role="button" tabindex="0" title="Language">
+            <div class="ext-btn" id="lang-text" style="font-weight: bold; font-size: 13px; color: #e3e3e3; font-family: sans-serif; line-height: 1;">A</div>
+        </div> -->
+        <div id="btn-pin" class="island pin-island clickable-island" role="button" tabindex="0" title="常に手前に表示">
+            <div class="ext-btn"><img id="img-pin" src="assets/keep_24dp_E3E3E3_FILL1_wght400_GRAD0_opsz24.svg"></div>
+        </div>
+        <div id="btn-volume" class="island vol-island volume-wrapper clickable-island" role="button" tabindex="0" title="音量">
+            <div class="ext-btn"><img src="assets/volume_up_24dp_E3E3E3_FILL1_wght400_GRAD0_opsz24.svg" id="volume-icon"></div>
+            <input type="range" id="volume-bar" min="0" max="1" step="0.01" value="1">
+        </div>
+    </div>
+
+    <!-- Island 4: Playlist -->
+    <div id="playlist-container" class="island playlist" style="display: none;">
+        <div class="playlist-header">
+            <div class="playlist-tabs-wrapper">
+                <div id="playlist-tabs" class="playlist-tabs">
+                    <!-- Dynamic tabs will be inserted here -->
+                </div>
+            </div>
+            <div class="playlist-header-actions">
+                <button id="btn-sort" class="action-btn" title="並べ替え" style="display: none;">
+                    <img src="assets/sort_24dp_FFFFFF_FILL1_wght400_GRAD0_opsz24.svg" alt="Sort" id="img-sort">
+                </button>
+                <button id="btn-add-playlist" class="action-btn" title="新しい再生リストを作成">
+                    <img src="assets/add_24dp_FFFFFF_FILL1_wght400_GRAD0_opsz24.svg" alt="Add">
+                </button>
+            </div>
+        </div>
+        <div class="playlist-search-container">
+            <input type="text" id="playlist-search-input" placeholder="検索 (曲名・アーティスト・アルバム)...">
+            <button id="btn-search-to-playlist" class="action-btn search-to-playlist-btn" title="検索結果からプレイリストを作成" style="display: none;">
+                <img src="assets/Playlist_Add.svg" alt="Create Playlist from Search">
+            </button>
+        </div>
+        <ul id="playlist-ul"></ul>
+    </div>
+  </div>
+  
+  <audio id="audio-player"></audio>
+
+  <!-- Custom Context Menu -->
+  <div id="custom-context-menu" class="context-menu" style="display: none;">
+      <ul id="context-menu-list"></ul>
+  </div>
+
+  <!-- Custom Dialog Overlay -->
+  <div id="playlist-dialog" class="dialog-overlay" style="display: none;">
+      <div class="dialog-box">
+          <div id="dialog-title" class="dialog-title">新しい再生リスト</div>
+          <input type="text" id="dialog-input" class="dialog-input" placeholder="名前を入力...">
+          <div class="dialog-buttons">
+              <button id="dialog-btn-cancel" class="dialog-btn cancel">キャンセル</button>
+              <button id="dialog-btn-confirm" class="dialog-btn confirm">作成</button>
+          </div>
+      </div>
+  </div>
+
+  <script src="locales.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

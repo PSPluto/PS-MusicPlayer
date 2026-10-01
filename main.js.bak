@@ -1,0 +1,162 @@
+const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const mm = require('music-metadata');
+
+let mainWindow;
+let visualizerWindow;
+
+function createWindow() {
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+
+  mainWindow = new BrowserWindow({
+    width: 380,
+    height: 210,
+    minWidth: 380,
+    maxWidth: 380,
+    x: screenWidth - 400,
+    y: screenHeight - 250,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    alwaysOnTop: false,
+    resizable: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  mainWindow.loadFile('index.html');
+  // mainWindow.webContents.openDevTools({ mode: 'detach' });
+}
+
+function createVisualizerWindow() {
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+
+  visualizerWindow = new BrowserWindow({
+    width: 220,
+    height: 120,
+    x: 40,
+    y: screenHeight - 280,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    alwaysOnTop: true,
+    resizable: false,
+    movable: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  visualizerWindow.loadFile('visualizer.html');
+  visualizerWindow.setMenuBarVisibility(false);
+  visualizerWindow.setAlwaysOnTop(true, 'screen-saver');
+  visualizerWindow.on('closed', () => {
+    visualizerWindow = null;
+  });
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  createVisualizerWindow();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+      createVisualizerWindow();
+    }
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+
+
+ipcMain.handle('get-music-files', async () => {
+    // Broaden Scanning: Scan the entire user Music folder, not just a specific subfolder.
+    const musicRoot = app.getPath('music');
+    
+    function getFiles(dir) {
+        let results = [];
+        try {
+            if (!fs.existsSync(dir)) return [];
+            const list = fs.readdirSync(dir);
+            list.forEach(file => {
+                const fullPath = path.join(dir, file);
+                const stat = fs.statSync(fullPath);
+                if (stat && stat.isDirectory()) {
+                    // Skip hidden directories (like AppData or similar if accidentally reached)
+                    if (!file.startsWith('.')) {
+                        results = results.concat(getFiles(fullPath));
+                    }
+                } else if (file.toLowerCase().endsWith('.mp3') || 
+                           file.toLowerCase().endsWith('.m4a') || 
+                           file.toLowerCase().endsWith('.wav') ||
+                           file.toLowerCase().endsWith('.flac')) {
+                    results.push(fullPath);
+                }
+            });
+        } catch (e) {
+            console.error('Error scanning dir:', dir, e);
+        }
+        return results;
+    }
+    
+    return getFiles(musicRoot);
+});
+
+ipcMain.handle('get-metadata', async (event, filePath) => {
+    try {
+        const metadata = await mm.parseFile(filePath);
+        let pictureBase64 = null;
+        if (metadata.common.picture && metadata.common.picture.length > 0) {
+            const pic = metadata.common.picture[0];
+            // Fix: Standardize MIME type and use Buffer.from for reliable Base64 encoding of Uint8Array data.
+            const mimeType = pic.format.includes('/') ? pic.format : `image/${pic.format === 'jpg' ? 'jpeg' : pic.format}`;
+            pictureBase64 = `data:${mimeType};base64,${Buffer.from(pic.data).toString('base64')}`;
+        }
+        return {
+            title: metadata.common.title || path.basename(filePath),
+            artist: metadata.common.artist || 'Unknown Artist',
+            picture: pictureBase64
+        };
+    } catch (err) {
+        return {
+            title: path.basename(filePath),
+            artist: 'Unknown Artist',
+            picture: null
+        };
+    }
+});
+
+ipcMain.on('resize-window', (event, mode) => {
+  mainWindow.setResizable(true);
+  if (mode === 'expanded') {
+    mainWindow.setSize(380, 560);
+  } else {
+    mainWindow.setSize(380, 210);
+  }
+  mainWindow.setResizable(false);
+});
+
+ipcMain.on('set-always-on-top', (event, value) => {
+  mainWindow.setAlwaysOnTop(value, 'screen-saver');
+});
+
+ipcMain.on('visualizer-data', (event, data) => {
+  if (visualizerWindow && !visualizerWindow.isDestroyed()) {
+    visualizerWindow.webContents.send('visualizer-data', data);
+  }
+});
+
+ipcMain.on('visualizer-color', (event, color) => {
+  if (visualizerWindow && !visualizerWindow.isDestroyed()) {
+    visualizerWindow.webContents.send('visualizer-color', color);
+  }
+});

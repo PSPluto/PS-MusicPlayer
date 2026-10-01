@@ -1,0 +1,43 @@
+{
+  "name": "transparentmusicplayer",
+  "version": "1.0.0",
+  "description": "Transparent Music Player",
+  "main": "main.js",
+  "build": {
+    "appId": "com.transparentmusicplayer.app",
+    "productName": "MusicPlayer",
+    "files": [
+      "**/*",
+      "!**/debug_and_test/**",
+      "!**/_Trash/**",
+      "!**/*.bak",
+      "!**/backups/**"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    }
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node launch.js",
+    "build": "electron-builder"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^41.0.4",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "koffi": "^3.1.4",
+    "music-metadata": "^11.12.3"
+  }
+}

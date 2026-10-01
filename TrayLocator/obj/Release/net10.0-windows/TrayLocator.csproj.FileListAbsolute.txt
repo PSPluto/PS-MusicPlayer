@@ -1,0 +1,14 @@
+C:\Users\Owner\Desktop\ElectronApp\MusicPlayer\TrayLocator\bin\Release\net10.0-windows\TrayLocator.exe
+C:\Users\Owner\Desktop\ElectronApp\MusicPlayer\TrayLocator\bin\Release\net10.0-windows\TrayLocator.deps.json
+C:\Users\Owner\Desktop\ElectronApp\MusicPlayer\TrayLocator\bin\Release\net10.0-windows\TrayLocator.runtimeconfig.json
+C:\Users\Owner\Desktop\ElectronApp\MusicPlayer\TrayLocator\bin\Release\net10.0-windows\TrayLocator.dll
+C:\Users\Owner\Desktop\ElectronApp\MusicPlayer\TrayLocator\bin\Release\net10.0-windows\TrayLocator.pdb
+C:\Users\Owner\Desktop\ElectronApp\MusicPlayer\TrayLocator\obj\Release\net10.0-windows\TrayLocator.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Owner\Desktop\ElectronApp\MusicPlayer\TrayLocator\obj\Release\net10.0-windows\TrayLocator.AssemblyInfoInputs.cache
+C:\Users\Owner\Desktop\ElectronApp\MusicPlayer\TrayLocator\obj\Release\net10.0-windows\TrayLocator.AssemblyInfo.cs
+C:\Users\Owner\Desktop\ElectronApp\MusicPlayer\TrayLocator\obj\Release\net10.0-windows\TrayLocator.csproj.CoreCompileInputs.cache
+C:\Users\Owner\Desktop\ElectronApp\MusicPlayer\TrayLocator\obj\Release\net10.0-windows\TrayLocator.dll
+C:\Users\Owner\Desktop\ElectronApp\MusicPlayer\TrayLocator\obj\Release\net10.0-windows\refint\TrayLocator.dll
+C:\Users\Owner\Desktop\ElectronApp\MusicPlayer\TrayLocator\obj\Release\net10.0-windows\TrayLocator.pdb
+C:\Users\Owner\Desktop\ElectronApp\MusicPlayer\TrayLocator\obj\Release\net10.0-windows\TrayLocator.genruntimeconfig.cache
+C:\Users\Owner\Desktop\ElectronApp\MusicPlayer\TrayLocator\obj\Release\net10.0-windows\ref\TrayLocator.dll

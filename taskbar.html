@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Taskbar Player</title>
+  <style>
+    :root {
+      --dominant-color: rgba(227, 227, 227, 0.15);
+    }
+    
+    body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      user-select: none;
+      -webkit-app-region: drag; /* Allows moving if clicked on empty/drag areas, though it's constrained in taskbar */
+    }
+    
+    .taskbar-pill {
+      display: flex;
+      align-items: center;
+      height: 36px;
+      padding: 0 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 0 solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      color: #e3e3e3;
+      backdrop-filter: blur(16px);
+      box-sizing: border-box;
+      -webkit-app-region: no-drag;
+      cursor: pointer;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .taskbar-pill:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .cover-art-container {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-right: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+    
+    .cover-art-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .song-info {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      width: 110px;
+      margin-right: 8px;
+      overflow: hidden;
+      font-size: 11px;
+      line-height: 1.25;
+    }
+    
+    .song-title-viewport {
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      position: relative;
+    }
+    
+    .song-title {
+      display: inline-block;
+      font-weight: 600;
+      color: #ffffff;
+    }
+    
+    .song-artist {
+      opacity: 0.6;
+      font-size: 9px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+    
+    .btn {
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.15s, transform 0.1s;
+    }
+    
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    
+    .btn:active {
+      transform: scale(0.9);
+    }
+    
+    .btn img {
+      width: 15px;
+      height: 15px;
+      opacity: 0.85;
+      transition: opacity 0.15s;
+    }
+    
+    .btn:hover img {
+      opacity: 1;
+    }
+    
+    /* Marquee Animation */
+    @keyframes marquee {
+      0% { transform: translate3d(0, 0, 0); }
+      100% { transform: translate3d(-50%, 0, 0); }
+    }
+    
+    .marquee {
+      animation: marquee 8s linear infinite;
+      display: inline-block;
+      white-space: nowrap;
+      padding-right: 20px; /* Gap before repeats */
+    }
+  </style>
+</head>
+<body>
+  <div class="taskbar-pill" id="pill">
+    <div class="cover-art-container" id="cover-art">♪</div>
+    <div class="song-info">
+      <div class="song-title-viewport" id="title-viewport">
+        <span class="song-title" id="title">曲名</span>
+      </div>
+      <div class="song-artist" id="artist">アーティスト</div>
+    </div>
+    <div class="controls">
+      <div class="btn" id="prev-btn" title="前の曲">
+        <img src="assets/skip_previous_24dp_E3E3E3_FILL1_wght400_GRAD0_opsz24.svg">
+      </div>
+      <div class="btn" id="play-btn" title="再生/一時停止">
+        <img id="play-icon" src="assets/play_circle_24dp_E3E3E3_FILL1_wght400_GRAD0_opsz24.svg">
+      </div>
+      <div class="btn" id="next-btn" title="次の曲">
+        <img src="assets/skip_next_24dp_E3E3E3_FILL1_wght400_GRAD0_opsz24.svg">
+      </div>
+    </div>
+  </div>
+  
+  <script src="taskbar.js"></script>
+</body>
+</html>
