@@ -1,4 +1,7 @@
-#include <windows.h>
+// smtc.h includes <windows.h> internally (must come before other Win32 headers)
+#include "smtc.h"
+
+// Additional Win32 / system headers
 #include <uiautomation.h>
 #include <iostream>
 #include <string>
@@ -13,6 +16,8 @@
 #pragma comment(lib, "gdi32.lib")
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "oleaut32.lib")
+#pragma comment(lib, "WindowsApp.lib")
+#pragma comment(lib, "runtimeobject.lib")
 
 typedef UINT(WINAPI* pfnGetDpiForWindow)(HWND hWnd);
 
@@ -28,6 +33,9 @@ static int g_widgetHeight = 40;
 static float g_marqueeOffset = 0.0f;
 static WidgetHitTarget g_hoverTarget = WidgetHitTarget::None;
 static bool g_isMouseTracking = false;
+
+// SMTC provider instance (initialized after CoInit on main thread)
+static SMTCProvider g_smtc;
 
 static std::mutex g_trackMutex;
 static TrackInfo g_pendingTrack;
@@ -441,17 +449,47 @@ static void StdinIpcThread() {
                 } catch (...) {}
             }
         } else if (cmd == "update-track") {
-            std::string title = ExtractJsonValue(line, "title");
-            std::string artist = ExtractJsonValue(line, "artist");
-            std::string picture = ExtractJsonValue(line, "picture");
-            std::string isPlayingStr = ExtractJsonValue(line, "isPlaying");
-            std::string color = ExtractJsonValue(line, "color"); // optional per-track color
+            std::string title           = ExtractJsonValue(line, "title");
+            std::string artist          = ExtractJsonValue(line, "artist");
+            std::string album           = ExtractJsonValue(line, "album");
+            std::string albumArtist     = ExtractJsonValue(line, "albumArtist");
+            std::string trackNumberStr  = ExtractJsonValue(line, "trackNumber");
+            std::string trackCountStr   = ExtractJsonValue(line, "albumTrackCount");
+            std::string genres          = ExtractJsonValue(line, "genres");
+            std::string picture         = ExtractJsonValue(line, "picture");
+            std::string isPlayingStr    = ExtractJsonValue(line, "isPlaying");
+            std::string durationStr     = ExtractJsonValue(line, "duration");
+            std::string color           = ExtractJsonValue(line, "color"); // optional per-track color
 
+            bool isPlaying = (isPlayingStr == "true");
+            double duration = 0.0;
+            try { if (!durationStr.empty()) duration = std::stod(durationStr); } catch (...) {}
+
+            uint32_t trackNumber = 0;
+            try { if (!trackNumberStr.empty()) trackNumber = (uint32_t)std::stoul(trackNumberStr); } catch (...) {}
+
+            uint32_t trackCount = 0;
+            try { if (!trackCountStr.empty()) trackCount = (uint32_t)std::stoul(trackCountStr); } catch (...) {}
+
+            // --- Update SMTC (called from IPC thread; WinRT is MTA-safe for updates) ---
+            g_smtc.UpdateTrack(
+                Utf8ToWstring(title),
+                Utf8ToWstring(artist),
+                Utf8ToWstring(album),
+                Utf8ToWstring(albumArtist),
+                trackNumber,
+                trackCount,
+                Utf8ToWstring(genres),
+                picture,
+                duration);
+            g_smtc.UpdatePlayback(isPlaying);
+
+            // --- Update taskbar widget ---
             std::lock_guard<std::mutex> lock(g_trackMutex);
             g_pendingTrack.title = Utf8ToWstring(title);
             g_pendingTrack.artist = Utf8ToWstring(artist);
             g_pendingTrack.pictureBase64 = picture;
-            g_pendingTrack.isPlaying = (isPlayingStr == "true");
+            g_pendingTrack.isPlaying = isPlaying;
             g_hasPendingTrack = true;
             // トラックが切り替わったら前の曲のアクセントカラーをリセットする。
             // "color" キーが付いていれば新しい色として適用、なければ空文字でリセット。
@@ -459,11 +497,24 @@ static void StdinIpcThread() {
             g_hasPendingColor = true;
 
             if (g_hWnd) PostMessageW(g_hWnd, WM_IPC_UPDATE, 0, 0);
+        } else if (cmd == "update-position") {
+            std::string positionStr = ExtractJsonValue(line, "position");
+            std::string durationStr = ExtractJsonValue(line, "duration");
+            double position = 0.0, duration = 0.0;
+            try { if (!positionStr.empty()) position = std::stod(positionStr); } catch (...) {}
+            try { if (!durationStr.empty()) duration = std::stod(durationStr); } catch (...) {}
+            if (duration > 0.0) {
+                g_smtc.UpdatePosition(position, duration);
+            }
         } else if (cmd == "update-playback") {
             std::string isPlayingStr = ExtractJsonValue(line, "isPlaying");
+            bool isPlaying = (isPlayingStr == "true");
+
+            // Update SMTC playback status
+            g_smtc.UpdatePlayback(isPlaying);
 
             std::lock_guard<std::mutex> lock(g_trackMutex);
-            g_pendingIsPlaying = (isPlayingStr == "true");
+            g_pendingIsPlaying = isPlaying;
             g_hasPendingPlayback = true;
 
             if (g_hWnd) PostMessageW(g_hWnd, WM_IPC_UPDATE, 0, 0);
@@ -480,6 +531,7 @@ static void StdinIpcThread() {
         } else if (cmd == "hide") {
             if (g_hWnd) ShowWindow(g_hWnd, SW_HIDE);
         } else if (cmd == "quit") {
+            g_smtc.Shutdown();
             g_running = false;
             if (g_hWnd) PostMessageW(g_hWnd, WM_CLOSE, 0, 0);
             break;
@@ -488,7 +540,11 @@ static void StdinIpcThread() {
 }
 
 int main(int argc, char* argv[]) {
-    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    // SMTC (WinRT) requires MTA; use MULTITHREADED so WinRT APIs work from
+    // any thread. UIAutomation still works with APARTMENTTHREADED on the
+    // same thread, but SMTC needs MTA for out-of-thread calls.
+    CoInitializeEx(NULL, COINIT_MULTITHREADED);
+    winrt::init_apartment(winrt::apartment_type::multi_threaded);
 
     HINSTANCE hInstance = GetModuleHandle(NULL);
 
@@ -532,6 +588,15 @@ int main(int argc, char* argv[]) {
     RepositionWindow();
     RedrawWidget();
 
+    // Initialize SMTC provider now that we have a window handle.
+    // Pass our widget HWND so Windows associates the SMTC session with us.
+    if (g_smtc.Init(g_hWnd)) {
+        // Forward SMTC button presses back to Electron via stdout JSON
+        g_smtc.SetButtonCallback([](const std::string& action) {
+            std::cout << "{\"event\":\"taskbar-control\",\"action\":\"" << action << "\"}" << std::endl;
+        });
+    }
+
     g_hWinEventHook = SetWinEventHook(
         EVENT_SYSTEM_FOREGROUND,
         EVENT_OBJECT_LOCATIONCHANGE,
@@ -558,6 +623,8 @@ int main(int argc, char* argv[]) {
         UnhookWinEvent(g_hWinEventHook);
     }
 
+    g_smtc.Shutdown();
+    winrt::uninit_apartment();
     CoUninitialize();
     return (int)msg.wParam;
 }

@@ -1,8 +1,99 @@
-const { app, BrowserWindow, ipcMain, screen, dialog, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, dialog, Tray, Menu, nativeImage, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn, execFile, execFileSync } = require('child_process');
 const mm = require('music-metadata');
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'sox',
+    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true }
+  }
+]);
+
+let soxPath = null;
+
+function findSox() {
+  if (soxPath !== null) return soxPath;
+
+  const configuredPath = process.env.SOX_PATH;
+  if (configuredPath && fs.existsSync(configuredPath)) {
+    soxPath = configuredPath;
+    return soxPath;
+  }
+
+  try {
+    soxPath = execFileSync(process.platform === 'win32' ? 'where.exe' : 'which', ['sox'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).split(/\r?\n/)[0].trim() || false;
+  } catch (e) {
+    soxPath = false;
+  }
+  return soxPath;
+}
+
+function registerSoxProtocol() {
+  protocol.handle('sox', async (request) => {
+    const executable = findSox();
+    if (!executable) {
+      return new Response('SoX is not installed', { status: 404 });
+    }
+
+    const requestUrl = new URL(request.url);
+    const inputPath = requestUrl.searchParams.get('path');
+    const requestedRate = Number(requestUrl.searchParams.get('rate'));
+    const sampleRate = Number.isInteger(requestedRate) && requestedRate >= 8000 && requestedRate <= 384000
+      ? requestedRate
+      : 48000;
+
+    if (!inputPath || !fs.existsSync(inputPath)) {
+      return new Response('Audio file not found', { status: 404 });
+    }
+
+    const sox = spawn(executable, [inputPath, '-t', 'wav', '-', 'rate', '-v', String(sampleRate)], {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    sox.stderr.on('data', (chunk) => console.warn(`[SoX] ${chunk.toString().trim()}`));
+
+    let isClosed = false;
+    const stream = new ReadableStream({
+      start(controller) {
+        const closeWithError = (error) => {
+          if (isClosed) return;
+          isClosed = true;
+          controller.error(error);
+        };
+
+        sox.stdout.on('data', (chunk) => {
+          if (!isClosed) controller.enqueue(new Uint8Array(chunk));
+        });
+        sox.stdout.on('end', () => {
+          if (isClosed) return;
+          isClosed = true;
+          controller.close();
+        });
+        sox.stdout.on('error', closeWithError);
+        sox.on('error', closeWithError);
+
+        sox.once('close', () => {
+          if (isClosed) return;
+          isClosed = true;
+          controller.close();
+        });
+      },
+      cancel() {
+        isClosed = true;
+        if (!sox.killed) sox.kill();
+      }
+    });
+
+    return new Response(stream, {
+      headers: { 'Content-Type': 'audio/wav' }
+    });
+  });
+}
 
 // Win32 API via koffi for reading taskbar auto-hide and visibility state
 let koffi = null;
@@ -486,7 +577,13 @@ function spawnTaskbarWidget() {
         cmd: 'update-track',
         title: currentTrackData.title || '',
         artist: currentTrackData.artist || '',
+        album: currentTrackData.album || '',
+        albumArtist: currentTrackData.albumArtist || '',
+        trackNumber: currentTrackData.trackNumber || 0,
+        albumTrackCount: currentTrackData.albumTrackCount || 0,
+        genres: currentTrackData.genres || '',
         picture: currentTrackData.picture || '',
+        duration: currentTrackData.duration || 0,
         isPlaying: !!currentTrackData.isPlaying
       });
     }
@@ -641,6 +738,7 @@ function createTray() {
 }
 
 app.whenReady().then(() => {
+  registerSoxProtocol();
   createWindow();
   createTray();
   spawnTaskbarWidget();
@@ -651,6 +749,10 @@ app.whenReady().then(() => {
     }
   });
 });
+
+ipcMain.handle('get-sox-info', () => ({
+  available: Boolean(findSox())
+}));
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
@@ -701,20 +803,82 @@ ipcMain.handle('get-music-files', async () => {
   return [...new Set(files)];
 });
 
+function optimizeCoverArt(rawBuf, originalFormat) {
+  if (!rawBuf || rawBuf.length === 0) return null;
+  const originalSize = rawBuf.length;
+  const mimeType = originalFormat && originalFormat.includes('/')
+    ? originalFormat
+    : `image/${originalFormat === 'jpg' ? 'jpeg' : (originalFormat || 'jpeg')}`;
+
+  try {
+    const img = nativeImage.createFromBuffer(rawBuf);
+    if (img.isEmpty()) {
+      return `data:${mimeType};base64,${rawBuf.toString('base64')}`;
+    }
+
+    const { width, height } = img.getSize();
+    const maxDim = Math.max(width, height);
+
+    // 1) 元から軽量かつ適切な寸法の場合（<= 400KB かつ maxDim <= 800px）
+    // 再エンコードせずオリジナルのまま無劣化で渡す
+    if (originalSize <= 400 * 1024 && maxDim <= 800) {
+      return `data:${mimeType};base64,${rawBuf.toString('base64')}`;
+    }
+
+    // 2) ファイルサイズと寸法に応じた動的なターゲット解像度 & JPEG品質
+    let targetDim = 800;
+    let quality = 90;
+
+    if (originalSize > 2.5 * 1024 * 1024 || maxDim > 2000) {
+      // 2.5MB超の超大容量画像: 512px / 品質85% (確実に50〜70KB程度に抑制しSMTC安全域へ)
+      targetDim = 512;
+      quality = 85;
+    } else if (originalSize > 1.2 * 1024 * 1024 || maxDim > 1200) {
+      // 1.2MB〜2.5MB: 640px / 品質88% (約80〜120KB)
+      targetDim = 640;
+      quality = 88;
+    } else {
+      // 400KB〜1.2MB: 800px / 品質90% (高画質重視、約120〜180KB)
+      targetDim = 800;
+      quality = 90;
+    }
+
+    let targetImg = img;
+    if (maxDim > targetDim) {
+      const scale = targetDim / maxDim;
+      targetImg = img.resize({
+        width: Math.round(width * scale),
+        height: Math.round(height * scale),
+        quality: 'better'
+      });
+    }
+
+    const jpegBuf = targetImg.toJPEG(quality);
+    return `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
+  } catch (e) {
+    console.warn('[optimizeCoverArt] Resize failed, using raw:', e);
+    return `data:${mimeType};base64,${rawBuf.toString('base64')}`;
+  }
+}
+
 ipcMain.handle('get-metadata', async (event, filePath) => {
   try {
     const metadata = await mm.parseFile(filePath);
     let pictureBase64 = null;
     if (metadata.common.picture && metadata.common.picture.length > 0) {
       const pic = metadata.common.picture[0];
-      // Fix: Standardize MIME type and use Buffer.from for reliable Base64 encoding of Uint8Array data.
-      const mimeType = pic.format.includes('/') ? pic.format : `image/${pic.format === 'jpg' ? 'jpeg' : pic.format}`;
-      pictureBase64 = `data:${mimeType};base64,${Buffer.from(pic.data).toString('base64')}`;
+      pictureBase64 = optimizeCoverArt(Buffer.from(pic.data), pic.format);
     }
     return {
       title: metadata.common.title || path.basename(filePath),
       artist: metadata.common.artist || 'Unknown Artist',
       album: metadata.common.album || 'Unknown Album',
+      albumArtist: metadata.common.albumartist || metadata.common.artist || '',
+      trackNumber: (metadata.common.track && metadata.common.track.no) ? metadata.common.track.no : 0,
+      albumTrackCount: (metadata.common.track && metadata.common.track.of) ? metadata.common.track.of : 0,
+      diskNumber: (metadata.common.disk && metadata.common.disk.no) ? metadata.common.disk.no : 1,
+      genres: Array.isArray(metadata.common.genre) ? metadata.common.genre.join(', ') : (metadata.common.genre || ''),
+      duration: (metadata.format && metadata.format.duration) ? metadata.format.duration : 0,
       picture: pictureBase64
     };
   } catch (err) {
@@ -722,6 +886,12 @@ ipcMain.handle('get-metadata', async (event, filePath) => {
       title: path.basename(filePath),
       artist: 'Unknown Artist',
       album: 'Unknown Album',
+      albumArtist: '',
+      trackNumber: 0,
+      albumTrackCount: 0,
+      diskNumber: 1,
+      genres: '',
+      duration: 0,
       picture: null
     };
   }
@@ -811,8 +981,22 @@ ipcMain.on('track-change', (event, data) => {
     cmd: 'update-track',
     title: data ? (data.title || '') : '',
     artist: data ? (data.artist || '') : '',
+    album: data ? (data.album || '') : '',
+    albumArtist: data ? (data.albumArtist || '') : '',
+    trackNumber: data ? (data.trackNumber || 0) : 0,
+    albumTrackCount: data ? (data.albumTrackCount || 0) : 0,
+    genres: data ? (data.genres || '') : '',
     picture: data ? (data.picture || '') : '',
+    duration: data ? (data.duration || 0) : 0,
     isPlaying: data ? !!data.isPlaying : false
+  });
+});
+
+ipcMain.on('position-change', (event, data) => {
+  sendToTaskbarWidget({
+    cmd: 'update-position',
+    position: data ? (data.position || 0) : 0,
+    duration: data ? (data.duration || 0) : 0
   });
 });
 

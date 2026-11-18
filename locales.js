@@ -30,7 +30,17 @@ const locales = {
         "change-icon-title": "リストのアイコンを変更",
         "change-icon-placeholder": "アイコンのパスを入力...",
         "search-placeholder": "検索 (曲名・アーティスト・アルバム)...",
-        "btn-search-to-playlist-title": "検索結果からプレイリストを作成"
+        "btn-search-to-playlist-title": "検索結果からプレイリストを作成",
+        "sort-by-track-number": "曲をトラックナンバー順に並べ替える",
+        "equalizer-preset": "イコライザープリセット",
+        "eq-flat": "フラット",
+        "eq-bass-boost": "低音強調",
+        "eq-treble-boost": "高音強調",
+        "eq-vocal": "ボーカル",
+        "eq-rock": "ロック",
+        "eq-pop": "ポップ",
+        "eq-radio": "ラジオ風",
+        "eq-live-stage": "🎸 ライブステージ"
     },
     en: {
         "song-title-default": "Please select a song",
@@ -63,7 +73,17 @@ const locales = {
         "change-icon-title": "Change playlist icon",
         "change-icon-placeholder": "Enter icon path...",
         "search-placeholder": "Search (title/artist/album)...",
-        "btn-search-to-playlist-title": "Create playlist from search results"
+        "btn-search-to-playlist-title": "Create playlist from search results",
+        "sort-by-track-number": "Sort songs by track number",
+        "equalizer-preset": "Equalizer Presets",
+        "eq-flat": "Flat",
+        "eq-bass-boost": "Bass Boost",
+        "eq-treble-boost": "Treble Boost",
+        "eq-vocal": "Vocal",
+        "eq-rock": "Rock",
+        "eq-pop": "Pop",
+        "eq-radio": "Radio",
+        "eq-live-stage": "🎸 Live Stage"
     }
 };
 
@@ -142,6 +162,7 @@ function applyTranslations() {
     
     if (typeof renderTabs === 'function') renderTabs();
     if (typeof renderPlaylist === 'function') renderPlaylist();
+    if (typeof updateEqualizerButtonUI === 'function') updateEqualizerButtonUI();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

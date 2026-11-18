@@ -24,7 +24,7 @@
     }
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node test/syntax.test.js && node test/track_sort.test.js && node test/title_tags.test.js && node test/equalizer.test.js && node test/dropdown_backdrop.test.js",
     "start": "node launch.js",
     "build": "electron-builder"
   },

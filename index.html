@@ -25,9 +25,14 @@
         </div>
         <div class="artist-row">
           <div id="song-artist">-</div>
-          <button id="main-favorite-btn" class="main-favorite-btn" title="お気に入りに追加" style="display: none;">
-            <img id="main-favorite-img" src="assets/Fav_Add.svg" alt="Bookmark">
-          </button>
+          <div class="artist-actions">
+            <button id="main-equalizer-btn" class="main-equalizer-btn" title="イコライザープリセット">
+              <img id="main-equalizer-img" src="assets/graphic_eq.svg" alt="Equalizer">
+            </button>
+            <button id="main-favorite-btn" class="main-favorite-btn" title="お気に入りに追加" style="display: none;">
+              <img id="main-favorite-img" src="assets/Fav_Add.svg" alt="Bookmark">
+            </button>
+          </div>
         </div>
         
         <div class="progress-container" id="progress-container">
@@ -66,7 +71,7 @@
         </div>
         <div id="btn-volume" class="island vol-island volume-wrapper clickable-island" role="button" tabindex="0" title="音量">
             <div class="ext-btn"><img src="assets/volume_up_24dp_E3E3E3_FILL1_wght400_GRAD0_opsz24.svg" id="volume-icon"></div>
-            <input type="range" id="volume-bar" min="0" max="1" step="0.01" value="1">
+            <input type="range" id="volume-bar" min="0" max="1" step="0.01" value="1" title="100%">
         </div>
     </div>
 

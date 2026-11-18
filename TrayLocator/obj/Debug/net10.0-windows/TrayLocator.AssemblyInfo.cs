@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TrayLocator")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2b4bacc493bd7dfe8abb63a09ef17ccb66f50667")]
 [assembly: System.Reflection.AssemblyProductAttribute("TrayLocator")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TrayLocator")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
